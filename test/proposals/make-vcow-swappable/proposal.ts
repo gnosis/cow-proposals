@@ -96,7 +96,7 @@ describe("make swappable proposal", function () {
       await mock();
     }
 
-    const { steps } = await generateMakeSwappableProposal(settings, ethers);
+    const { steps } = await generateMakeSwappableProposal(settings);
     for (const step of groupMultipleTransactions(
       steps,
       gnosisSafeManager.multisend.address,
@@ -109,9 +109,7 @@ describe("make swappable proposal", function () {
     lastExecutedIndex: number,
     preparedMocks: ReturnType<typeof prepareMocks>,
   ) {
-    const steps = (
-      await generateMakeSwappableProposal(settings, ethers)
-    ).steps.flat();
+    const steps = generateMakeSwappableProposal(settings).steps.flat();
 
     for (let index = 0; index <= lastExecutedIndex; index++) {
       expect(Object.keys(preparedMocks)).to.include(index.toString());

@@ -1,5 +1,4 @@
 import { MetaTransaction } from "@gnosis.pm/safe-contracts";
-import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import IERC20 from "@openzeppelin/contracts/build/contracts/IERC20.json";
 import { Interface } from "ethers/lib/utils";
 
@@ -27,19 +26,17 @@ export interface MakeSwappableProposal {
 
 const erc20Iface = new Interface(IERC20.abi);
 
-export async function generateMakeSwappableProposal(
+export function generateMakeSwappableProposal(
   settings: MakeSwappableSettings,
-  ethers: HardhatEthersHelpers,
-): Promise<MakeSwappableProposal> {
+): MakeSwappableProposal {
   const mainnetMakeSwappableTx = makeVcowSwappable(settings);
 
   const { approve: approveCowBridgingTx, relay: relayToOmniBridgeTx } =
-    await prepareBridgingTokens({
+    prepareBridgingTokens({
       token: settings.cowToken,
       receiver: settings.bridged.virtualCowToken,
       atoms: settings.bridged.atomsToTransfer,
       multiTokenMediator: settings.multiTokenMediator,
-      ethers,
     });
 
   return {

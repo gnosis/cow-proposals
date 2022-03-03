@@ -1,45 +1,42 @@
 import { MetaTransaction } from "@gnosis.pm/safe-contracts";
-import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import IERC20 from "@openzeppelin/contracts/build/contracts/IERC20.json";
 import { BigNumberish, ethers } from "ethers";
 
+export const OMNIBRIDGE_FUNCTIONS = [
+  "function relayTokens(address,address,uint256)",
+];
+
 const erc20Interface = new ethers.utils.Interface(IERC20.abi);
+const omnibridgeInterface = new ethers.utils.Interface(OMNIBRIDGE_FUNCTIONS);
 
 interface PrepareBridgingTokensInput {
   token: string;
   receiver: string;
   atoms: BigNumberish;
-  ethers: HardhatEthersHelpers;
   multiTokenMediator: string;
 }
-export async function prepareBridgingTokens({
+export function prepareBridgingTokens({
   token,
   receiver,
   atoms,
-  multiTokenMediator: multiTokenMediatorAddress,
-  ethers,
-}: PrepareBridgingTokensInput): Promise<{
+  multiTokenMediator,
+}: PrepareBridgingTokensInput): {
   approve: MetaTransaction;
   relay: MetaTransaction;
-}> {
-  const multiTokenMediator = await ethers.getContractAt(
-    "IOmnibridge",
-    multiTokenMediatorAddress,
-  );
-
+} {
   const approve = {
     to: token,
     value: "0",
     data: erc20Interface.encodeFunctionData("approve", [
-      multiTokenMediator.address,
+      multiTokenMediator,
       atoms,
     ]),
     operation: 0,
   };
   const relay = {
-    to: multiTokenMediator.address,
+    to: multiTokenMediator,
     value: "0",
-    data: multiTokenMediator.interface.encodeFunctionData("relayTokens", [
+    data: omnibridgeInterface.encodeFunctionData("relayTokens", [
       token,
       receiver,
       atoms,
