@@ -1,4 +1,5 @@
 import { MetaTransaction } from "@gnosis.pm/safe-contracts";
+import { HardhatEthersHelpers } from "@nomiclabs/hardhat-ethers/types";
 import IERC20 from "@openzeppelin/contracts/build/contracts/IERC20.json";
 import { Interface } from "ethers/lib/utils";
 
@@ -6,11 +7,16 @@ import {
   SafeOperation,
   JsonMetaTransaction,
   transformMetaTransaction,
+  prepareBridgingTokens,
 } from "../../lib";
 
-export interface MakeSwappableSettings {
+export interface TransferSettings {
   virtualCowToken: string;
   atomsToTransfer: string;
+}
+export interface MakeSwappableSettings extends TransferSettings {
+  bridged: TransferSettings;
+  multiTokenMediator: string;
   cowToken: string;
   multisend: string;
 }
@@ -21,14 +27,25 @@ export interface MakeSwappableProposal {
 
 const erc20Iface = new Interface(IERC20.abi);
 
-export function generateMakeSwappableProposal(
+export async function generateMakeSwappableProposal(
   settings: MakeSwappableSettings,
-): MakeSwappableProposal {
-  const mainnetMakeSwappableTransaction = makeVcowSwappable(settings);
+  ethers: HardhatEthersHelpers,
+): Promise<MakeSwappableProposal> {
+  const mainnetMakeSwappableTx = makeVcowSwappable(settings);
+
+  const { approve: approveCowBridgingTx, relay: relayToOmniBridgeTx } =
+    await prepareBridgingTokens({
+      token: settings.cowToken,
+      receiver: settings.bridged.virtualCowToken,
+      atoms: settings.bridged.atomsToTransfer,
+      multiTokenMediator: settings.multiTokenMediator,
+      ethers,
+    });
+
   return {
-    steps: [[mainnetMakeSwappableTransaction]].map((step) =>
-      step.map(transformMetaTransaction),
-    ),
+    steps: [
+      [mainnetMakeSwappableTx, approveCowBridgingTx, relayToOmniBridgeTx],
+    ].map((step) => step.map(transformMetaTransaction)),
   };
 }
 
@@ -36,10 +53,7 @@ function makeVcowSwappable({
   cowToken,
   virtualCowToken,
   atomsToTransfer,
-}: Pick<
-  MakeSwappableSettings,
-  "cowToken" | "virtualCowToken" | "atomsToTransfer"
->): MetaTransaction {
+}: TransferSettings & { cowToken: string }): MetaTransaction {
   return {
     to: cowToken,
     data: erc20Iface.encodeFunctionData("transfer", [
