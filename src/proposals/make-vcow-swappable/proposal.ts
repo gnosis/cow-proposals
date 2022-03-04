@@ -1,27 +1,35 @@
 import { MetaTransaction } from "@gnosis.pm/safe-contracts";
 import IERC20 from "@openzeppelin/contracts/build/contracts/IERC20.json";
+import { BigNumberish } from "ethers";
 import { Interface } from "ethers/lib/utils";
 
 import {
   SafeOperation,
-  JsonMetaTransaction,
   transformMetaTransaction,
   prepareBridgingTokens,
+  CalldataReplacer,
+  ProposalSteps,
 } from "../../lib";
 
 export interface TransferSettings {
   virtualCowToken: string;
-  atomsToTransfer: string;
+  atomsToTransfer: BigNumberish;
 }
-export interface MakeSwappableSettings extends TransferSettings {
-  bridged: TransferSettings;
+export type PartialTransferSettings = Pick<
+  TransferSettings,
+  "virtualCowToken"
+> &
+  Partial<TransferSettings>;
+export interface MakeSwappableSettings extends PartialTransferSettings {
+  bridged: PartialTransferSettings;
   multiTokenMediator: string;
   cowToken: string;
   multisend: string;
 }
 
 export interface MakeSwappableProposal {
-  steps: JsonMetaTransaction[][];
+  replacer: CalldataReplacer;
+  stepsWithPlaceholders: ProposalSteps;
 }
 
 const erc20Iface = new Interface(IERC20.abi);
@@ -29,18 +37,31 @@ const erc20Iface = new Interface(IERC20.abi);
 export function generateMakeSwappableProposal(
   settings: MakeSwappableSettings,
 ): MakeSwappableProposal {
-  const mainnetMakeSwappableTx = makeVcowSwappable(settings);
+  const replacer = new CalldataReplacer();
+  const atomsToTransfer =
+    settings.atomsToTransfer ??
+    replacer.generateUint256Placeholder("atomsToTransfer");
 
+  const mainnetMakeSwappableTx = makeVcowSwappable({
+    atomsToTransfer,
+    cowToken: settings.cowToken,
+    virtualCowToken: settings.virtualCowToken,
+  });
+
+  const atomsToBridge =
+    settings.bridged.atomsToTransfer ??
+    replacer.generateUint256Placeholder("atomsToBridge");
   const { approve: approveCowBridgingTx, relay: relayToOmniBridgeTx } =
     prepareBridgingTokens({
       token: settings.cowToken,
       receiver: settings.bridged.virtualCowToken,
-      atoms: settings.bridged.atomsToTransfer,
+      atoms: atomsToBridge,
       multiTokenMediator: settings.multiTokenMediator,
     });
 
   return {
-    steps: [
+    replacer,
+    stepsWithPlaceholders: [
       [mainnetMakeSwappableTx, approveCowBridgingTx, relayToOmniBridgeTx],
     ].map((step) => step.map(transformMetaTransaction)),
   };

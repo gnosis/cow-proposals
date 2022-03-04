@@ -96,7 +96,8 @@ describe("make swappable proposal", function () {
       await mock();
     }
 
-    const { steps } = await generateMakeSwappableProposal(settings);
+    const { stepsWithPlaceholders: steps } =
+      await generateMakeSwappableProposal(settings);
     for (const step of groupMultipleTransactions(
       steps,
       gnosisSafeManager.multisend.address,
@@ -109,7 +110,8 @@ describe("make swappable proposal", function () {
     lastExecutedIndex: number,
     preparedMocks: ReturnType<typeof prepareMocks>,
   ) {
-    const steps = generateMakeSwappableProposal(settings).steps.flat();
+    const steps =
+      generateMakeSwappableProposal(settings).stepsWithPlaceholders.flat();
 
     for (let index = 0; index <= lastExecutedIndex; index++) {
       expect(Object.keys(preparedMocks)).to.include(index.toString());
@@ -152,6 +154,29 @@ describe("make swappable proposal", function () {
 
   it("approves the DAO for sending COW to the multibridge", async function () {
     await expectUninitializedMockAtIndex(1);
+  });
+
+  it("does not change when specifying all parameters or leaving some to be replaced", async function () {
+    const partialSettings = {
+      ...settings,
+      bridged: { ...settings.bridged },
+    };
+    delete partialSettings["atomsToTransfer"];
+    delete partialSettings.bridged["atomsToTransfer"];
+
+    const { stepsWithPlaceholders: fullSteps } =
+      generateMakeSwappableProposal(settings);
+    const { replacer, stepsWithPlaceholders } =
+      generateMakeSwappableProposal(partialSettings);
+
+    expect(
+      replacer.replaceAllInProposal(stepsWithPlaceholders, {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        atomsToTransfer: settings.atomsToTransfer!,
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        atomsToBridge: settings.bridged.atomsToTransfer!,
+      }),
+    ).to.deep.equal(fullSteps);
   });
 
   describe("multibridge", function () {

@@ -7,6 +7,8 @@ export type JsonMetaTransaction = Record<
   string
 > & { operation: number };
 
+export type ProposalSteps = JsonMetaTransaction[][];
+
 export function transformMetaTransaction(
   tx: MetaTransaction,
 ): JsonMetaTransaction {
