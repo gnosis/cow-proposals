@@ -6,11 +6,16 @@ import {
   SafeOperation,
   JsonMetaTransaction,
   transformMetaTransaction,
+  prepareBridgingTokens,
 } from "../../lib";
 
-export interface MakeSwappableSettings {
+export interface TransferSettings {
   virtualCowToken: string;
   atomsToTransfer: string;
+}
+export interface MakeSwappableSettings extends TransferSettings {
+  bridged: TransferSettings;
+  multiTokenMediator: string;
   cowToken: string;
   multisend: string;
 }
@@ -24,11 +29,20 @@ const erc20Iface = new Interface(IERC20.abi);
 export function generateMakeSwappableProposal(
   settings: MakeSwappableSettings,
 ): MakeSwappableProposal {
-  const mainnetMakeSwappableTransaction = makeVcowSwappable(settings);
+  const mainnetMakeSwappableTx = makeVcowSwappable(settings);
+
+  const { approve: approveCowBridgingTx, relay: relayToOmniBridgeTx } =
+    prepareBridgingTokens({
+      token: settings.cowToken,
+      receiver: settings.bridged.virtualCowToken,
+      atoms: settings.bridged.atomsToTransfer,
+      multiTokenMediator: settings.multiTokenMediator,
+    });
+
   return {
-    steps: [[mainnetMakeSwappableTransaction]].map((step) =>
-      step.map(transformMetaTransaction),
-    ),
+    steps: [
+      [mainnetMakeSwappableTx, approveCowBridgingTx, relayToOmniBridgeTx],
+    ].map((step) => step.map(transformMetaTransaction)),
   };
 }
 
@@ -36,10 +50,7 @@ function makeVcowSwappable({
   cowToken,
   virtualCowToken,
   atomsToTransfer,
-}: Pick<
-  MakeSwappableSettings,
-  "cowToken" | "virtualCowToken" | "atomsToTransfer"
->): MetaTransaction {
+}: TransferSettings & { cowToken: string }): MetaTransaction {
   return {
     to: cowToken,
     data: erc20Iface.encodeFunctionData("transfer", [

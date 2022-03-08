@@ -51,7 +51,7 @@ async function makeSwappable(
     await fs.readFile(settingsJson, "utf8"),
   );
 
-  const { steps } = generateMakeSwappableProposal(settings);
+  const { steps } = await generateMakeSwappableProposal(settings);
 
   let txHashes = null;
   if (Object.keys(realityModuleAddress).includes(chainId)) {
