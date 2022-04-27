@@ -1,3 +1,5 @@
+**:warning: The team that worked on this project has spun out of Gnosis and continues development on a forked repo (01-04-2022) which is available here <https://github.com/cowprotocol/proposals>**
+
 # CoW DAO Proposals
 
 This repository collects the code used to build proposals that are executed by the CoW Protocol DAO.
